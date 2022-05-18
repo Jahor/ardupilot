@@ -107,6 +107,7 @@ private:
 
     AP_Int32 _motor_mask_parameter;
     AP_Int32 _reverse_mask_parameter;
+    AP_Int32 _reversible_mask_parameter;
 #if HAL_WITH_ESC_TELEM
     AP_Int8 _pole_count_parameter;
 #endif
@@ -196,6 +197,7 @@ private:
     uint32_t _motor_mask;                    ///< an un-mutable copy of the _motor_mask_parameter taken before _init_done goes true
     uint32_t _reverse_mask;                  ///< a copy of the _reverse_mask_parameter taken while not armed
     uint32_t _running_mask;                  ///< a bitmask of the actively running ESCs
+    uint32_t _reversible_mask;               ///< a copy of the _reversible_mask_parameter taken while not armed
     uint32_t _last_transmit_us;             ///< last time the transmit() function sent data
     ESC *_escs;
     uint8_t _esc_count;                ///< number of allocated ESCs
