@@ -685,7 +685,7 @@ class AutoTestPlane(AutoTest):
         ]
 
         for (current_waypoint, want_airspeed) in checks:
-            self.wait_current_waypoint(current_waypoint)
+            self.wait_current_waypoint(current_waypoint, timeout=120)
             self.wait_airspeed(want_airspeed-1, want_airspeed+1, minimum_duration=5, timeout=120)
 
         self.fly_home_land_and_disarm()
@@ -711,16 +711,8 @@ class AutoTestPlane(AutoTest):
         self.delay_sim_time(10)
         self.progress("Ensuring initial speed is known and relatively constant")
         initial_speed = 22.0
-        timeout = 10
-        tstart = self.get_sim_time()
-        while True:
-            if self.get_sim_time_cached() - tstart > timeout:
-                break
-            m = self.mav.recv_match(type='VFR_HUD', blocking=True)
-            self.progress("AirSpeed: %f want=%f" %
-                          (m.airspeed, initial_speed))
-            if abs(initial_speed - m.airspeed) > 1:
-                raise NotAchievedException("Initial speed not as expected (want=%f got=%f" % (initial_speed, m.airspeed))
+        timeout = 15
+        self.wait_airspeed(initial_speed-1, initial_speed+1, minimum_duration=5, timeout=timeout)
 
         self.progress("Setting groundspeed")
         new_target_groundspeed = initial_speed + 5
@@ -2223,6 +2215,8 @@ function'''
         self.fly_home_land_and_disarm()
 
     def LOITER(self):
+        # first test old loiter behavour
+        self.set_parameter("FLIGHT_OPTIONS", 0)
         self.takeoff(alt=200)
         self.set_rc(3, 1500)
         self.change_mode("LOITER")
@@ -2268,6 +2262,20 @@ function'''
         self.progress("Centering elevator and ensuring we get back to loiter altitude")
         self.set_rc(2, 1500)
         self.wait_altitude(initial_alt-1, initial_alt+1)
+        # Test new loiter behavour
+        self.set_parameter("FLIGHT_OPTIONS", 1 << 12)
+        # should decend at max stick
+        self.set_rc(2, int(rc2_max))
+        self.wait_altitude(initial_alt - 110, initial_alt - 90, timeout=90)
+        # should not climb back at mid stick
+        self.set_rc(2, 1500)
+        self.delay_sim_time(60)
+        self.wait_altitude(initial_alt - 110, initial_alt - 90)
+        # should climb at min stick
+        self.set_rc(2, 1100)
+        self.wait_altitude(initial_alt - 10, initial_alt + 10, timeout=90)
+        # return stick to center and fly home
+        self.set_rc(2, 1500)
         self.fly_home_land_and_disarm()
 
     def CPUFailsafe(self):
@@ -2490,6 +2498,7 @@ function'''
         airspeed_sensors = [
             ("MS5525", 3, 1),
             ("DLVR", 7, 2),
+            ("SITL", 100, 0),
         ]
         for (name, t, bus) in airspeed_sensors:
             self.context_push()
